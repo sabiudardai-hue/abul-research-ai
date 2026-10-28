@@ -1,17 +1,22 @@
 name: Build Abul Research AI
+
 'on':
 workflow_dispatch:
 push:
 branches:
 - main
+
 permissions:
 contents: read
+
 jobs:
 build:
 runs-on: ubuntu-latest
 steps:
 - name: Checkout source
-uses: actions/checkout@v4- name: Set up JDK
+uses: actions/checkout@v4
+
+  - name: Set up JDK
     uses: actions/setup-java@v4
     with:
       distribution: temurin
