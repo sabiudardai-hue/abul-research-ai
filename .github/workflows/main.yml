@@ -1,6 +1,6 @@
 name: Build Abul Research AI
 
-'on':
+on:
 workflow_dispatch:
 push:
 branches:
