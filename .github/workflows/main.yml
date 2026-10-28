@@ -1,36 +1,37 @@
 name: Build Abul Research AI
 
-'on':
-workflow_dispatch:
-push:
-branches:
-- main
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
-contents: read
+  contents: read
 
 jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- name: Checkout source
-uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
 
-  - name: Set up JDK
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-  - name: Set up Gradle
-    uses: gradle/actions/setup-gradle@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Build debug APK
-    run: gradle --no-daemon assembleDebug
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-  - name: Upload APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: abul-research-ai-debug
-      path: app/build/outputs/apk/debug/app-debug.apk
-      if-no-files-found: error
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: abul-research-ai-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
