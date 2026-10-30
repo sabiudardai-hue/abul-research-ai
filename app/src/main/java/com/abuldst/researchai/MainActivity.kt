@@ -129,6 +129,82 @@ scroll.addView(output)
     private var modelUri: Uri? = null
 
     private fun loadModel() {
+    val uri = modelUri ?: return
+
+    loadButton.isEnabled = false
+    askButton.isEnabled = false
+    status.text = "Checking and copying Gemma model..."
+
+    executor.execute {
+        try {
+            val expectedSize = 2588147712L
+            val file = File(filesDir, "gemma-4-E2B-it.litertlm")
+            val tempFile = File(filesDir, "gemma-model.tmp")
+
+            if (file.exists() && file.length() != expectedSize) {
+                file.delete()
+            }
+
+            if (!file.exists()) {
+                tempFile.delete()
+
+                contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input) {
+                        "Cannot open selected model."
+                    }
+
+                    FileOutputStream(tempFile).use { output ->
+                        input.copyTo(output, 1024 * 1024)
+                    }
+                }
+
+                require(tempFile.length() == expectedSize) {
+                    "Model size mismatch. Expected 2588147712 bytes, got ${tempFile.length()}."
+                }
+
+                require(tempFile.renameTo(file)) {
+                    "Could not save model file."
+                }
+            }
+
+            require(file.length() == expectedSize) {
+                "Model file size is incorrect."
+            }
+
+            runOnUiThread {
+                status.text = "Verified. Loading Gemma AI..."
+            }
+
+            val newEngine = Engine(
+                EngineConfig(
+                    modelPath = file.absolutePath,
+                    backend = Backend.CPU(),
+                    cacheDir = cacheDir.absolutePath
+                )
+            )
+
+            newEngine.initialize()
+
+            val newConversation = newEngine.createConversation()
+
+            engine = newEngine
+            conversation = newConversation
+            modelFile = file
+
+            runOnUiThread {
+                status.text = "AI READY! Gemma is loaded successfully."
+                askButton.isEnabled = true
+                loadButton.isEnabled = false
+            }
+
+        } catch (e: Exception) {
+            runOnUiThread {
+                status.text = "Loading failed: ${e.message}"
+                loadButton.isEnabled = true
+            }
+        }
+    }
+    }
         val uri = modelUri ?: return
 
         loadButton.isEnabled = false
