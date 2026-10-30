@@ -205,67 +205,8 @@ scroll.addView(output)
         }
     }
     }
-        val uri = modelUri ?: return
-
-        loadButton.isEnabled = false
-        askButton.isEnabled = false
-        status.text = "Copying model and preparing AI..."
-
-        executor.execute {
-            try {
-                val file = File(filesDir, "gemma-4-E2B-it.litertlm")
-
-                if (!file.exists() || file.length() == 0L) {
-                    contentResolver.openInputStream(uri).use { input ->
-                        requireNotNull(input) {
-                            "Cannot open selected model file."
-                        }
-
-                        FileOutputStream(file).use { output ->
-                            input.copyTo(output, 1024 * 1024)
-                        }
-                    }
-                }
-
-                require(file.length() > 0) {
-                    "Model file is empty."
-                }
-
-                runOnUiThread {
-                    status.text = "Loading Gemma AI... Please wait."
-                }
-
-                val newEngine = Engine(
-                    EngineConfig(
-                        modelPath = file.absolutePath,
-                        backend = Backend.CPU(),
-                        cacheDir = cacheDir.absolutePath
-                    )
-                )
-
-                newEngine.initialize()
-
-                val newConversation = newEngine.createConversation()
-
-                engine = newEngine
-                conversation = newConversation
-                modelFile = file
-
-                runOnUiThread {
-                    status.text = "AI READY! Gemma is loaded successfully."
-                    askButton.isEnabled = true
-                    loadButton.isEnabled = false
-                }
-
-            } catch (e: Exception) {
-                runOnUiThread {
-                    status.text = "Loading failed: ${e.message}"
-                    loadButton.isEnabled = true
-                }
-            }
         }
-    }
-
+    
     private fun askAI() {
         val query = question.text.toString().trim()
 
