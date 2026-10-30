@@ -2,99 +2,233 @@ package com.abuldst.researchai
 
 import android.app.Activity
 import android.os.Bundle
-import android.graphics.Color
+import android.content.Intent
+import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
+import android.widget.*
+import android.graphics.Color
+import java.io.File
+import java.io.FileOutputStream
+import java.util.concurrent.Executors
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Backend
 
 class MainActivity : Activity() {
 
-private lateinit var output: TextView
-private lateinit var question: EditText
+    private val executor = Executors.newSingleThreadExecutor()
 
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
+    private var engine: Engine? = null
+    private var conversation: com.google.ai.edge.litertlm.Conversation? = null
 
-    val root = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(24, 32, 24, 24)
-        setBackgroundColor(Color.rgb(12, 18, 32))
-    }
+    private lateinit var status: TextView
+    private lateinit var output: TextView
+    private lateinit var question: EditText
+    private lateinit var loadButton: Button
+    private lateinit var askButton: Button
 
-    val title = TextView(this).apply {
-        text = "Abul Research AI"
-        textSize = 26f
-        setTextColor(Color.WHITE)
-        gravity = Gravity.CENTER
-    }
-    root.addView(title)
+    private var modelFile: File? = null
 
-    val subtitle = TextView(this).apply {
-        text = "Your private, offline research assistant"
-        textSize = 14f
-        setTextColor(Color.LTGRAY)
-        gravity = Gravity.CENTER
-        setPadding(0, 8, 0, 24)
-    }
-    root.addView(subtitle)
+    private val PICK_MODEL = 1001
 
-    question = EditText(this).apply {
-        hint = "Enter a research question..."
-        textSize = 16f
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.LTGRAY)
-        setPadding(16, 12, 16, 12)
-    }
-    root.addView(
-        question,
-        LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 30, 24, 20)
+            setBackgroundColor(Color.rgb(18, 22, 32))
+        }
+
+        fun addText(text: String, size: Float): TextView {
+            return TextView(this).apply {
+                this.text = text
+                textSize = size
+                setTextColor(Color.WHITE)
+                setPadding(0, 12, 0, 12)
+                root.addView(this)
+            }
+        }
+
+        addText("Abul Research AI", 26f)
+        addText("Your private, offline research assistant", 15f)
+
+        status = addText("Choose your local AI model to begin.", 14f)
+
+        val chooseButton = Button(this).apply {
+            text = "Choose AI Model"
+            setOnClickListener {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    type = "*/*"
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                }
+                startActivityForResult(intent, PICK_MODEL)
+            }
+        }
+        root.addView(chooseButton)
+
+        loadButton = Button(this).apply {
+            text = "Load AI Model"
+            isEnabled = false
+            setOnClickListener { loadModel() }
+        }
+        root.addView(loadButton)
+
+        question = EditText(this).apply {
+            hint = "Enter your research question..."
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+            setPadding(12, 12, 12, 12)
+        }
+        root.addView(question)
+
+        askButton = Button(this).apply {
+            text = "Start Research"
+            isEnabled = false
+            setOnClickListener { askAI() }
+        }
+        root.addView(askButton)
+
+        output = addText("Your AI research answers will appear here.", 16f)
+
+        val scroll = ScrollView(this)
+        scroll.addView(output)
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
         )
-    )
 
-    val askButton = Button(this).apply {
-        text = "Start Research"
-        setOnClickListener { answerQuestion() }
+        setContentView(root)
     }
-    root.addView(askButton)
 
-    val scroll = ScrollView(this)
-    output = TextView(this).apply {
-        text = "Welcome!\n\nAbul Research AI is being built. " +
-            "The local AI engine has not been connected yet."
-        textSize = 16f
-        setTextColor(Color.WHITE)
-        setPadding(0, 24, 0, 0)
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == PICK_MODEL &&
+            resultCode == RESULT_OK &&
+            data?.data != null
+        ) {
+            val uri = data.data!!
+
+            status.text = "Model selected. Ready to load."
+            loadButton.isEnabled = true
+
+            modelUri = uri
+        }
     }
-    scroll.addView(output)
-    root.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            0,
-            1f
-        )
-    )
 
-    setContentView(root)
-}
+    private var modelUri: Uri? = null
 
-private fun answerQuestion() {
-    val query = question.text.toString().trim()
+    private fun loadModel() {
+        val uri = modelUri ?: return
 
-    output.text = if (query.isEmpty()) {
-        "Please enter a research question."
-    } else {
-        "Your question:\n$query\n\n" +
-            "The offline AI engine is not connected yet. " +
-            "This interface currently works as a prototype; " +
-            "it does not generate AI research answers yet."
+        loadButton.isEnabled = false
+        askButton.isEnabled = false
+        status.text = "Copying model and preparing AI..."
+
+        executor.execute {
+            try {
+                val file = File(filesDir, "gemma-4-E2B-it.litertlm")
+
+                if (!file.exists() || file.length() == 0L) {
+                    contentResolver.openInputStream(uri).use { input ->
+                        requireNotNull(input) {
+                            "Cannot open selected model file."
+                        }
+
+                        FileOutputStream(file).use { output ->
+                            input.copyTo(output, 1024 * 1024)
+                        }
+                    }
+                }
+
+                require(file.length() > 0) {
+                    "Model file is empty."
+                }
+
+                runOnUiThread {
+                    status.text = "Loading Gemma AI... Please wait."
+                }
+
+                val newEngine = Engine(
+                    EngineConfig(
+                        modelPath = file.absolutePath,
+                        backend = Backend.CPU(),
+                        cacheDir = cacheDir.absolutePath
+                    )
+                )
+
+                newEngine.initialize()
+
+                val newConversation = newEngine.createConversation()
+
+                engine = newEngine
+                conversation = newConversation
+                modelFile = file
+
+                runOnUiThread {
+                    status.text = "AI READY! Gemma is loaded successfully."
+                    askButton.isEnabled = true
+                    loadButton.isEnabled = false
+                }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    status.text = "Loading failed: ${e.message}"
+                    loadButton.isEnabled = true
+                }
+            }
+        }
     }
-}
 
+    private fun askAI() {
+        val query = question.text.toString().trim()
+
+        if (query.isEmpty()) {
+            question.error = "Enter a question first"
+            return
+        }
+
+        askButton.isEnabled = false
+        output.text = "Researching... Please wait."
+
+        executor.execute {
+            try {
+                val response = conversation?.sendMessage(query)
+
+                runOnUiThread {
+                    output.text = response?.text ?: "No response received."
+                    askButton.isEnabled = true
+                }
+
+            } catch (e: Exception) {
+                runOnUiThread {
+                    output.text = "Research error: ${e.message}"
+                    askButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        executor.execute {
+            conversation?.close()
+            conversation = null
+
+            engine?.close()
+            engine = null
+        }
+
+        executor.shutdown()
+        super.onDestroy()
+    }
 }
