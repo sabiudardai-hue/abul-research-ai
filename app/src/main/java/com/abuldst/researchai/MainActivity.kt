@@ -206,7 +206,7 @@ class MainActivity : Activity() {
                 val response = conversation?.sendMessage(query)
 
                 runOnUiThread {
-                    output.text = response?.text ?: "No response received."
+                    output.text = response?.toString() ?: "No response received."
                     askButton.isEnabled = true
                 }
 
