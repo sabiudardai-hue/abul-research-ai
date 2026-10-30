@@ -91,9 +91,9 @@ class MainActivity : Activity() {
         root.addView(askButton)
 
         output = addText("Your AI research answers will appear here.", 16f)
-
-        val scroll = ScrollView(this)
-        scroll.addView(output)
+root.removeView(output)
+val scroll = ScrollView(this)
+scroll.addView(output)
         root.addView(
             scroll,
             LinearLayout.LayoutParams(
