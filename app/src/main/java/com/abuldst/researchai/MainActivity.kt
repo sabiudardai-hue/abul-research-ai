@@ -143,6 +143,21 @@ val tempFile = File(filesDir, "gemma-model.tmp")
 
 tempFile.delete()
 
+    val sourceDigest = MessageDigest.getInstance("SHA-256")
+val sourceInput = requireNotNull(contentResolver.openInputStream(uri))
+
+sourceInput.use { input ->
+    val buffer = ByteArray(1024 * 1024)
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        sourceDigest.update(buffer, 0, count)
+    }
+}
+
+val sourceSha = sourceDigest.digest().joinToString("") {
+    "%02x".format(it.toInt() and 0xff)
+}
 contentResolver.openInputStream(uri).use { input ->
     requireNotNull(input) {
         "Cannot open selected model."
@@ -180,7 +195,7 @@ require(tempFile.length() == expectedSize) {
 }
 
 require(actualSha == expectedSha) {
-    "Model SHA-256 mismatch: $actualSha"
+    "Model SHA-256 mismatch. Source: $sourceSha | Copied: $actualSha"
 }
 if (file.exists()) {
     require(file.delete()) {
