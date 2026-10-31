@@ -10,6 +10,7 @@ import android.widget.*
 import android.graphics.Color
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.Executors
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -156,6 +157,31 @@ require(tempFile.exists() && tempFile.length() > 0L) {
     "Model copy failed or file is empty."
 }
 
+            val expectedSize = 2588147712L
+val expectedSha = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+
+val digest = MessageDigest.getInstance("SHA-256")
+
+tempFile.inputStream().use { input ->
+    val buffer = ByteArray(1024 * 1024)
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        digest.update(buffer, 0, count)
+    }
+}
+
+val actualSha = digest.digest().joinToString("") {
+    "%02x".format(it.toInt() and 0xff)
+}
+
+require(tempFile.length() == expectedSize) {
+    "Wrong model size: ${tempFile.length()} bytes"
+}
+
+require(actualSha == expectedSha) {
+    "Model SHA-256 mismatch: $actualSha"
+}
 if (file.exists()) {
     require(file.delete()) {
         "Cannot replace old model file."
