@@ -199,7 +199,7 @@ require(tempFile.renameTo(file)) {
             }
         }
     }
-
+    }
     private fun askAI() {
         val query = question.text.toString().trim()
 
