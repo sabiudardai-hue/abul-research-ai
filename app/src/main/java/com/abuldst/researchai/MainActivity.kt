@@ -205,7 +205,7 @@ scroll.addView(output)
         }
     }
 
-    
+    }  
     private fun askAI() {
         val query = question.text.toString().trim()
 
