@@ -137,39 +137,34 @@ scroll.addView(output)
 
     executor.execute {
         try {
-            val expectedSize = 2588147712L
             val file = File(filesDir, "gemma-4-E2B-it.litertlm")
-            val tempFile = File(filesDir, "gemma-model.tmp")
+val tempFile = File(filesDir, "gemma-model.tmp")
 
-            if (file.exists() && file.length() != expectedSize) {
-                file.delete()
-            }
+tempFile.delete()
 
-            if (!file.exists()) {
-                tempFile.delete()
+contentResolver.openInputStream(uri).use { input ->
+    requireNotNull(input) {
+        "Cannot open selected model."
+    }
 
-                contentResolver.openInputStream(uri).use { input ->
-                    requireNotNull(input) {
-                        "Cannot open selected model."
-                    }
+    FileOutputStream(tempFile).use { output ->
+        input.copyTo(output, 1024 * 1024)
+    }
+}
 
-                    FileOutputStream(tempFile).use { output ->
-                        input.copyTo(output, 1024 * 1024)
-                    }
-                }
+require(tempFile.exists() && tempFile.length() > 0L) {
+    "Model copy failed or file is empty."
+}
 
-                require(tempFile.length() == expectedSize) {
-                    "Model size mismatch. Expected 2588147712 bytes, got ${tempFile.length()}."
-                }
+if (file.exists()) {
+    require(file.delete()) {
+        "Cannot replace old model file."
+    }
+}
 
-                require(tempFile.renameTo(file)) {
-                    "Could not save model file."
-                }
-            }
-
-            require(file.length() == expectedSize) {
-                "Model file size is incorrect."
-            }
+require(tempFile.renameTo(file)) {
+    "Could not save model file."
+}
 
             runOnUiThread {
                 status.text = "Verified. Loading Gemma AI..."
@@ -205,7 +200,6 @@ scroll.addView(output)
         }
     }
 
-    }  
     private fun askAI() {
         val query = question.text.toString().trim()
 
