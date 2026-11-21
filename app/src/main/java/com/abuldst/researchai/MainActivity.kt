@@ -177,6 +177,23 @@ val expectedSha = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a
 
 val digest = MessageDigest.getInstance("SHA-256")
 
+contentResolver.openInputStream(uri)?.use { input ->
+    FileOutputStream(tempFile).use { output ->
+        val buffer = ByteArray(1024 * 1024)
+
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+
+            output.write(buffer, 0, count)
+            digest.update(buffer, 0, count)
+        }
+    }
+} ?: throw IllegalStateException("Cannot open selected model.")
+
+val sourceSha = digest.digest().joinToString("") {
+    "%02x".format(it)
+}
 tempFile.inputStream().use { input ->
     val buffer = ByteArray(1024 * 1024)
     while (true) {
