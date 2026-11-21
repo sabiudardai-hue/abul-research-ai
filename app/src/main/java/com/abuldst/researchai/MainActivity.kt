@@ -155,7 +155,7 @@ sourceInput.use { input ->
     }
 }
 
-val sourceSha = sourceDigest.digest().joinToString("") {
+val downloadedSha = sourceDigest.digest().joinToString("") {
     "%02x".format(it.toInt() and 0xff)
 }
 contentResolver.openInputStream(uri).use { input ->
@@ -211,8 +211,7 @@ require(tempFile.length() == expectedSize) {
     "Wrong model size: ${tempFile.length()} bytes"
 }
 
-require(actualSha == expectedSha) {
-    "Model SHA-256 mismatch. Source: $sourceSha | Copied: $actualSha"
+"Model SHA-256 mismatch. Source: $downloadedSha | Copied: $actualSha"
 }
 if (file.exists()) {
     require(file.delete()) {
